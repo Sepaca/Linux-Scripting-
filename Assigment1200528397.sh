@@ -8,7 +8,7 @@ username=$(whoami)
 hostname=$(hostname)
 date_time=$(date)
 uptime=$(uptime -p)
-cpu=$(lscpu | grep 'Model name:'| awk -F ":" '{print $2}'|uniq )
+cpu=$(lscpu | grep 'Model name:'| awk -F ":" '{print $2}')
 Cpu_speed=$(grep 'cpu MHz' /proc/cpuinfo | awk '{print $4}' | head -1)
 CpuMaxSpeed=
 OSinfo=$(cat /etc/os-release | grep PRETTY_NAME= | awk -F '"' '{print $2}')

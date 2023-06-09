@@ -43,6 +43,8 @@ System Information
 Hostname: $hostname
 OS: $OSinfo
 Uptime: $uptime
+
+
 ----------------------
 Hardware Information
 ----------------------

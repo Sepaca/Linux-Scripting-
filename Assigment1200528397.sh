@@ -28,7 +28,7 @@ FQDN=$(hostname  --fqdn)
 LoadAv=$(cat /proc/loadavg | awk '{print $1",", $2",", $3}')
 MemoryAllocation=$(free -m | awk 'NR==2 {print $4}')
 ListeningPorts=$(ss -tuln | awk 'NR > 1 {print $5}' | cut -d':' -f2 | sort -n | uniq|paste -s -d ',' - )
-#ufwRules=$(sudo ufw show numbered)
+ufwEnable=$(sudo ufw status|awk '{print $2}')
 Process=$(ps -e --no-headers | wc -l )
 
 cat << E0F
@@ -43,14 +43,14 @@ System Information
 Hostname: $hostname
 OS: $OSinfo
 Uptime: $uptime
-
+----------------------
 Hardware Information
 ----------------------
 cpu:$cpu
 Max CPU Speed: $Cpu_speed
 Ram: $RamInfo
 
-
+---------------------
 Disk Information
 -----------------------
 Make and model: $DiskMake
@@ -58,8 +58,11 @@ Make and model: $DiskMake
 Disk Size:$DiskSize
 
 ------------------------
-Video GPU Information:$GPUinfo
+Video GPU Info
+-------------------------
+$GPUinfo
 
+-----------------------
 Network Information
 ---------------------
 FQDN: $FQDN
@@ -74,6 +77,7 @@ $InterfaceIp
 
 IP Address: IP Address in CIDR format
 
+--------------
 System Status
 --------------
 Users Logged In:  $UsersLoging
@@ -84,4 +88,4 @@ Process Count: $Process
 Load Averages: $LoadAv
 Memory Allocation: $MemoryAllocation
 Listening Network Ports: $ListeningPorts
-UFW Rules: $ufwRules
+UFW Rules: $ufwEnable

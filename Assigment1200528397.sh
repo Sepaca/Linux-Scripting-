@@ -73,9 +73,9 @@ DNS Server: $DNS
 
 InterfaceName:
 $InterfaceName
+IP Address:
 $InterfaceIp
 
-IP Address: IP Address in CIDR format
 
 --------------
 System Status

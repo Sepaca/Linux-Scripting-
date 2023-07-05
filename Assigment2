@@ -11,7 +11,7 @@ fi
 currentHostname=$(hostname)
 if [[ "$currentHostname" != "autosrv" ]]; then
   echo "Setting hostname to :  autosrv "
-  hostnamectl set-hostname autosrv
+  hostnamectl set-hostname autosrv  > /dev/null
   echo "127.0.1.1 autosrv" >> /etc/hosts
 fi
 
@@ -21,31 +21,11 @@ if [[ $(hostnamectl --static) != "autosrv" ]]; then
   exit 1
 fi
 
-# Set static IP
-currentIp=$(hostname -I | cut -d' ' -f1)
-if [[ "$currentIp" != "192.168.16.21" ]]; then
-  echo "Setting static IP to : 192.168.16.21 "
-  cat << EOF > /etc/netplan/01-netcfg.yaml
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    ens3:
-      addresses: [192.168.16.21/24]
-      gateway4: 192.168.16.1
-      nameservers:
-        addresses: [192.168.16.1]
-        search: [home.arpa, localdomain]
-EOF
-
-  netplan apply
-fi
-
 # Install software and configure so it does not give me errors if is not installs# Check if openssh-server is installed and install if not
 if ! dpkg -l | grep -qw openssh-server; then
   echo "Installing openssh-server Tool..."
-  apt-get update
-  apt-get install -y openssh-server
+  apt-get update > /dev/null
+  apt-get install -y openssh-server > /dev/null
 else 
 	continue
 fi
@@ -53,8 +33,8 @@ fi
 # Check if apache2 is installed and install if not
 if ! dpkg -l | grep -qw apache2; then
   echo "Installing apache2 Tool..."
-  apt-get update
-  apt-get install -y apache2
+  apt-get update > /dev/null
+  apt-get install -y apache2 > /dev/null
 else 
 	continue
 fi
@@ -62,8 +42,8 @@ fi
 # Check if squid is installed and install if not
 if ! dpkg -l | grep -qw squid; then
   echo "Installing squid tool ..."
-  apt-get update
-  apt-get install -y squid
+  apt-get update > /dev/null
+  apt-get install -y squid > /dev/null
 else
    continue
 fi
@@ -71,12 +51,39 @@ fi
 # Check if ufw is installed and install if not
 if ! dpkg -l | grep -qw ufw; then
   echo "Installing ufw tool ..."
-  apt-get update
-  apt-get install -y ufw
+  apt-get update > /dev/null
+  apt-get install -y ufw > /dev/null
 else
   continue
 fi
 
+# Set static Ip
+currentIp=$(hostname -I | cut -d' ' -f1)
+INTERFACE=$(ip route | awk '/default/ {print $5}')
+if [[ "$currentIp" != "192.168.16.21" ]]; then
+  echo "Setting static IP to : 192.168.16.21 "
+  cat << EOF > /etc/netplan/01-netcfg.yaml 
+# > /dev/null
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    $INTERFACE:
+      dhcp4: no
+      addresses: [192.168.16.21/24]
+      routes:
+      - to: default
+        via: 192.168.16.1
+      nameservers:
+        addresses: [192.168.16.1]
+        search: [home.arpa, localdomain]
+EOF
+
+  netplan apply
+# > /dev/null
+else 
+ echo "Ip is alreary set up"
+fi
 
 # Configure UFW
 ufw allow 22
@@ -108,7 +115,7 @@ if ! id -nG "$user" | grep -qw "sudo"; then
   usermod -aG sudo dennis
 fi
 
-# Verify changes
+# Verifying changes
 echo "Verifying changes..."
 hostnamectl status | grep -q "autosrv" && echo "Hostname set correctly" || echo "Hostname not set correctly"
 netplan ip leases ens3 | grep -q "192.168.16.21" && echo "Static IP set correctly" || echo "Static IP not set correctly"

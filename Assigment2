@@ -1,0 +1,118 @@
+#!/bin/bash
+
+# Ensure script is run as root if is not run a root, remind the user to use it, and prevent future
+# errors,
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root, add sudo in Front of your Command" 
+   exit 1
+fi
+
+# Set hostname to the appropiate one only if is not alreary set up
+currentHostname=$(hostname)
+if [[ "$currentHostname" != "autosrv" ]]; then
+  echo "Setting hostname to :  autosrv "
+  hostnamectl set-hostname autosrv
+  echo "127.0.1.1 autosrv" >> /etc/hosts
+fi
+
+# Check if hostname persists after reboot
+if [[ $(hostnamectl --static) != "autosrv" ]]; then
+  echo "Failed to set hostname persistently"
+  exit 1
+fi
+
+# Set static IP
+currentIp=$(hostname -I | cut -d' ' -f1)
+if [[ "$currentIp" != "192.168.16.21" ]]; then
+  echo "Setting static IP to : 192.168.16.21 "
+  cat << EOF > /etc/netplan/01-netcfg.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ens3:
+      addresses: [192.168.16.21/24]
+      gateway4: 192.168.16.1
+      nameservers:
+        addresses: [192.168.16.1]
+        search: [home.arpa, localdomain]
+EOF
+
+  netplan apply
+fi
+
+# Install software and configure so it does not give me errors if is not installs# Check if openssh-server is installed and install if not
+if ! dpkg -l | grep -qw openssh-server; then
+  echo "Installing openssh-server Tool..."
+  apt-get update
+  apt-get install -y openssh-server
+else 
+	continue
+fi
+
+# Check if apache2 is installed and install if not
+if ! dpkg -l | grep -qw apache2; then
+  echo "Installing apache2 Tool..."
+  apt-get update
+  apt-get install -y apache2
+else 
+	continue
+fi
+
+# Check if squid is installed and install if not
+if ! dpkg -l | grep -qw squid; then
+  echo "Installing squid tool ..."
+  apt-get update
+  apt-get install -y squid
+else
+   continue
+fi
+
+# Check if ufw is installed and install if not
+if ! dpkg -l | grep -qw ufw; then
+  echo "Installing ufw tool ..."
+  apt-get update
+  apt-get install -y ufw
+else
+  continue
+fi
+
+
+# Configure UFW
+ufw allow 22
+ufw allow 80
+ufw allow 443
+ufw allow 3128
+ufw --force enable
+
+# Create users, set random passwords, and configure SSH keys
+users=("dennis" "aubrey" "captain" "snibbles" "brownie" "scooter" "sandy" "perrier" "cindy" "tiger" "yoda")
+for user in "${users[@]}"; do
+  if ! id -u $user >/dev/null 2>&1; then
+    echo "Creating user $user, setting random password, and configuring SSH keys..."
+    # User creation and ssh key configuration goes here
+    password=$(openssl rand -base64 32)
+    useradd -m -s /bin/bash $user
+    echo "$user:$password" | chpasswd
+    mkdir /home/$user/.ssh
+    chmod 700 /home/$user/.ssh
+    ssh-keygen -t rsa -f /home/$user/.ssh/id_rsa -N ''
+    cat /home/$user/.ssh/id_rsa.pub >> /home/$user/.ssh/authorized_keys
+    chmod 600 /home/$user/.ssh/authorized_keys
+    chown -R $user:$user /home/$user/.ssh
+  fi
+done
+
+# Give Dennis sudo access
+if ! id -nG "$user" | grep -qw "sudo"; then
+  usermod -aG sudo dennis
+fi
+
+# Verify changes
+echo "Verifying changes..."
+hostnamectl status | grep -q "autosrv" && echo "Hostname set correctly" || echo "Hostname not set correctly"
+netplan ip leases ens3 | grep -q "192.168.16.21" && echo "Static IP set correctly" || echo "Static IP not set correctly"
+for user in "${users[@]}"; do
+  id -u $user >/dev/null 2>&1 && echo "User $user exists" || echo "User $user does not exist"
+done
+id -nG "dennis" | grep -qw "sudo" && echo "Dennis has sudo access" || echo "Dennis does not have sudo access"

@@ -92,28 +92,50 @@ ufw allow 443
 ufw allow 3128
 ufw --force enable
 
-# Create users, set random passwords, and configure SSH keys
-users=("dennis" "aubrey" "captain" "snibbles" "brownie" "scooter" "sandy" "perrier" "cindy" "tiger" "yoda")
-for user in "${users[@]}"; do
-  if ! id -u $user >/dev/null 2>&1; then
-    echo "Creating user $user, setting random password, and configuring SSH keys..."
-    # User creation and ssh key configuration goes here
-    password=$(openssl rand -base64 32)
-    useradd -m -s /bin/bash $user
-    echo "$user:$password" | chpasswd
-    mkdir /home/$user/.ssh
-    chmod 700 /home/$user/.ssh
-    ssh-keygen -t rsa -f /home/$user/.ssh/id_rsa -N ''
-    cat /home/$user/.ssh/id_rsa.pub >> /home/$user/.ssh/authorized_keys
-    chmod 600 /home/$user/.ssh/authorized_keys
-    chown -R $user:$user /home/$user/.ssh
-  fi
+# Create user accounts
+usernames=("dennis" "aubrey" "captain" "snibbles" "brownie" "scooter" "sandy" "perrier" "cindy" "tiger" "y>
+
+for username in "${usernames[@]}"
+do
+    sudo useradd -m -s /bin/bash "$username" >/dev/null 2>&1
+    echo "User account '$username' created."
 done
 
-# Give Dennis sudo access
-if ! id -nG "$user" | grep -qw "sudo"; then
-  usermod -aG sudo dennis
-fi
+# Set up SSH access for dennis
+sudo mkdir -p /home/dennis/.ssh >/dev/null 2>&1
+sudo touch /home/dennis/.ssh/authorized_keys >/dev/null 2>&1
+sudo chmod 700 /home/dennis/.ssh >/dev/null 2>&1
+sudo chmod 600 /home/dennis/.ssh/authorized_keys >/dev/null 2>&1
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG4rT3vTt99Ox5kndS4HmgTrKBT8SKzhK4rhGkEVGlCI student@generic-vm">
+echo "SSH access configured for user 'dennis'."
+
+# Grant sudo access to dennis
+echo "dennis ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/dennis >/dev/null 2>&1
+echo "Sudo access granted to user 'dennis'."
+
+# Generate and set up SSH keys for other users
+for username in "${usernames[@]}"
+do
+    if [ "$username" != "dennis" ]; then
+        if [ ! -f "/home/$username/.ssh/id_ed25519" ]; then
+            sudo -H -u "$username" bash -c "ssh-keygen -t ed25519 -f /home/$username/.ssh/id_ed25519 -q -N>
+            echo "SSH keys generated for user '$username'."
+        else
+            echo "SSH keys already exist for user '$username'. Skipping key generation."
+        fi
+        sudo cat /home/$username/.ssh/id_ed25519.pub | sudo tee -a /home/dennis/.ssh/authorized_keys >/dev>
+    fi
+done
+
+# Set correct permissions for SSH keys
+sudo chown -R dennis:dennis /home/dennis/.ssh >/dev/null 2>&1
+sudo chmod 600 /home/dennis/.ssh/authorized_keys >/dev/null 2>&1
+echo "Permissions set for SSH keys."
+
+echo "User account setup completed."
+
+
+
 
 # Verifying changes
 echo "Verifying changes..."

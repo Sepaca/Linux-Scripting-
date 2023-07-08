@@ -25,7 +25,11 @@ fi
 if ! dpkg -l | grep -qw openssh-server; then
   echo "Installing openssh-server Tool..."
   apt-get update > /dev/null
+
   apt-get install -y openssh-server > /dev/null
+   if [ $? -eq 0 ]; then
+    echo "Previous command was successful."
+   fi
 else 
 	continue
 fi

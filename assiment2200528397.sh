@@ -1,12 +1,10 @@
 #!/bin/bash
-
 # Ensure script is run as root if is not run a root, remind the user to use it, and prevent future
 # errors,
 if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root, add sudo in Front of your Command" 
    exit 1
 fi
-
 # Set hostname to the appropiate one only if is not alreary set up
 currentHostname=$(hostname)
 if [[ "$currentHostname" != "autosrv" ]]; then
@@ -14,150 +12,141 @@ if [[ "$currentHostname" != "autosrv" ]]; then
   hostnamectl set-hostname autosrv  > /dev/null
   echo "127.0.1.1 autosrv" >> /etc/hosts
 fi
-
 # Check if hostname persists after reboot
 if [[ $(hostnamectl --static) != "autosrv" ]]; then
   echo "Failed to set hostname persistently"
   exit 1
 fi
-
 # Install software and configure so it does not give me errors if is not installs# Check if openssh-server is installed and install if not
-# Install openssh-server if not already installed
 if ! dpkg -l | grep -qw openssh-server; then
-  echo "Installing openssh-server..."
+  echo "Installing openssh-server Tool..."
   apt-get update > /dev/null
   apt-get install -y openssh-server > /dev/null
+else 
+	continue
 fi
-
-# Configure openssh-server to allow SSH key authentication and disable password authentication
-echo "Configuring openssh-server..."
-sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
-sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-systemctl restart sshd
-
-# Install apache2 if not already installed
+# Check if apache2 is installed and install if not
 if ! dpkg -l | grep -qw apache2; then
-  echo "Installing apache2..."
+  echo "Installing apache2 Tool..."
   apt-get update > /dev/null
   apt-get install -y apache2 > /dev/null
+else 
+	continue
 fi
-
-# Configure apache2 to listen on port 80 (HTTP) and port 443 (HTTPS)
-echo "Configuring apache2..."
-sed -i 's/Listen 80/Listen 0.0.0.0:80/' /etc/apache2/ports.conf
-sed -i 's/Listen 443/Listen 0.0.0.0:443/' /etc/apache2/ports.conf
-a2enmod ssl > /dev/null
-systemctl restart apache2
-
-# Install squid if not already installed
+# Check if squid is installed and install if not
 if ! dpkg -l | grep -qw squid; then
-  echo "Installing squid..."
+  echo "Installing squid tool ..."
   apt-get update > /dev/null
   apt-get install -y squid > /dev/null
+else
+   continue
 fi
-
-# Configure squid to listen on port 312
-echo "Configuring squid..."
-sed -i 's/http_port 3128/http_port 312/' /etc/squid/squid.conf
-systemctl restart squid
-
-# Install ufw if not already installed
+# Check if ufw is installed and install if not
 if ! dpkg -l | grep -qw ufw; then
-  echo "Installing ufw..."
+  echo "Installing ufw tool ..."
   apt-get update > /dev/null
   apt-get install -y ufw > /dev/null
+else
+  continue
 fi
-
-echo "Software installation and configuration completed."
-
 # Set static Ip
-# Function to set static IP configuration
-set_static_ip() {
-  local interface="$1"
-  local ip_address="$2"
-  local gateway="$3"
-  local dns_server="$4"
-  local search_domains="$5"
-
-  print_section_header "Setting Static IP Configuration"
-
-  # Check if current IP matches desired IP
-  current_ip=$(hostname -I | awk '{print $1}')
-  if [[ "$current_ip" == "$ip_address" ]]; then
-    print_success "IP is already set to $ip_address"
-    return
-  fi
-
-  # Create netplan configuration file
-  cat << EOF | sudo tee /etc/netplan/01-netcfg.yaml > /dev/null
+currentIp=$(hostname -I | cut -d' ' -f1)
+INTERFACE=$(ip route | awk '/default/ {print $5}')
+if [[ "$currentIp" != "192.168.16.21" ]]; then
+  echo "Setting static IP to : 192.168.16.21 "
+  cat << EOF > /etc/netplan/01-netcfg.yaml 
+# > /dev/null
 network:
   version: 2
   renderer: networkd
   ethernets:
-    $interface:
+    $INTERFACE:
       dhcp4: no
-      addresses: [$ip_address/24]
-      gateway4: $gateway
+      addresses: [192.168.16.21/24]
+      routes:
+      - to: default
+        via: 192.168.16.1
       nameservers:
-        addresses: [$dns_server]
-      search: [$search_domains]
+        addresses: [192.168.16.1]
+        search: [home.arpa, localdomain]
 EOF
-
-  # Apply netplan configuration
-  sudo netplan apply > /dev/null
-
-  # Check if IP is set correctly
-  current_ip=$(hostname -I | awk '{print $1}')
-  if [[ "$current_ip" == "$ip_address" ]]; then
-    print_success "Static IP set to $ip_address"
-  else
-    print_error "Failed to set static IP"
-  fi
-}
+  netplan apply
+# > /dev/null
+else 
+ echo "Ip is alreary set up"
+fi
 # Configure UFW
-ufw allow 22 > /dev/null
-ufw allow 80 > /dev/null
-ufw allow 443 > /dev/null
-ufw allow 3128 > /dev/null
-ufw --force enable > /dev/nul 
-echo "UFW rules have been set up"
-
-# Create user accounts
-# List of users
-users=("dennis" "aubrey" "captain" "snibbles" "brownie" "scooter" "sandy" "perrier" "cindy" "tiger" "yoda")
-
-# Public key for 'dennis'
-sudo_pub_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG4rT3vTt99Ox5kndS4HmgTrKBT8SKzhK4rhGkEVGlCI student@generic-vm"
+ufw allow 22
+ufw allow 80
+ufw allow 443
+ufw allow 3128
+ufw --force enable
 
 # Create users, set random passwords, and configure SSH keys
+users=("dennis" "aubrey" "captain" "snibbles" "brownie" "scooter" "sandy" "perrier" "cindy" "tiger" "yoda")
 for user in "${users[@]}"; do
-    # Check if user already exists
-    if id "$user" >/dev/null 2>&1; then
-        echo "User $user already exists"
-    else
-        # Create user with home directory and bash shell
-        sudo useradd -m -s /bin/bash $user
-
-        # Generate SSH keys
-        sudo su - $user -c "ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa <<<y >/dev/null 2>&1"
-        sudo su - $user -c "ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519 <<< >/dev/null 2>&1"
-
-        # Add public keys to authorized_keys file
-        sudo su - $user -c "cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys"
-        sudo su - $user -c "cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys"
+  if ! id -u $user >/dev/null 2>&1; then
+    echo "Creating user $user, setting random password, and configuring SSH keys..."
+    # User creation and ssh key configuration goes here
+    password=$(openssl rand -base64 32)
+    useradd -m -s /bin/bash $user
+    echo "$user:$password" | chpasswd
+    mkdir /home/$user/.ssh
+    chmod 700 /home/$user/.ssh
+    ssh-keygen -t rsa -f /home/$user/.ssh/id_rsa -N ''
+    cat /home/$user/.ssh/id_rsa.pub >> /home/$user/.ssh/authorized_keys
+    chmod 600 /home/$user/.ssh/authorized_keys
+    chown -R $user:$user /home/$user/.ssh
+  fi
+# Create user accounts
+usernames=("dennis" "aubrey" "captain" "snibbles" "brownie" "scooter" "sandy" "perrier" "cindy" "tiger" "y>
+for username in "${usernames[@]}"
+do
+    sudo useradd -m -s /bin/bash "$username" >/dev/null 2>&1
+    echo "User account '$username' created."
+done
+# Give Dennis sudo access
+if ! id -nG "$user" | grep -qw "sudo"; then
+  usermod -aG sudo dennis
+fi
+# Set up SSH access for dennis
+sudo mkdir -p /home/dennis/.ssh >/dev/null 2>&1
+sudo touch /home/dennis/.ssh/authorized_keys >/dev/null 2>&1
+sudo chmod 700 /home/dennis/.ssh >/dev/null 2>&1
+sudo chmod 600 /home/dennis/.ssh/authorized_keys >/dev/null 2>&1
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG4rT3vTt99Ox5kndS4HmgTrKBT8SKzhK4rhGkEVGlCI student@generic-vm">
+echo "SSH access configured for user 'dennis'."
+# Grant sudo access to dennis
+echo "dennis ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/dennis >/dev/null 2>&1
+echo "Sudo access granted to user 'dennis'."
+# Generate and set up SSH keys for other users
+for username in "${usernames[@]}"
+do
+    if [ "$username" != "dennis" ]; then
+        if [ ! -f "/home/$username/.ssh/id_ed25519" ]; then
+            sudo -H -u "$username" bash -c "ssh-keygen -t ed25519 -f /home/$username/.ssh/id_ed25519 -q -N>
+            echo "SSH keys generated for user '$username'."
+        else
+            echo "SSH keys already exist for user '$username'. Skipping key generation."
+        fi
+        sudo cat /home/$username/.ssh/id_ed25519.pub | sudo tee -a /home/dennis/.ssh/authorized_keys >/dev>
     fi
 done
 
-# Grant sudo access to 'dennis' and add provided public key
-sudo usermod -aG sudo dennis
-echo "$sudo_pub_key" | sudo tee -a /home/dennis/.ssh/authorized_keys >/dev/null 2>&1
-echo "Sudo access granted to user 'dennis'."
+# Set correct permissions for SSH keys
+sudo chown -R dennis:dennis /home/dennis/.ssh >/dev/null 2>&1
+sudo chmod 600 /home/dennis/.ssh/authorized_keys >/dev/null 2>&1
+echo "Permissions set for SSH keys."
+
+echo "User account setup completed."
+
+
 
 
 # Verifying changes
 echo "Verifying changes..."
 hostnamectl status | grep -q "autosrv" && echo "Hostname set correctly" || echo "Hostname not set correctly"
-#netplan ip leases  | grep -q "192.168.16.21" && echo "Static IP set correctly" || echo "Static IP not set correctly"
+netplan ip leases ens3 | grep -q "192.168.16.21" && echo "Static IP set correctly" || echo "Static IP not set correctly"
 for user in "${users[@]}"; do
   id -u $user >/dev/null 2>&1 && echo "User $user exists" || echo "User $user does not exist"
 done

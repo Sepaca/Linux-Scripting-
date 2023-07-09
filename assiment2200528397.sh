@@ -55,13 +55,11 @@ INTERFACE=$(ip route | awk '/default/ {print $5}')
 if [[ "$currentIp" != "192.168.16.21" ]]; then
   echo "Setting static IP to : 192.168.16.21 "
   cat << EOF > /etc/netplan/01-netcfg.yaml 
-# > /dev/null
 network:
   version: 2
   renderer: networkd
   ethernets:
     $INTERFACE:
-      dhcp4: no
       addresses: [192.168.16.21/24]
       routes:
       - to: default

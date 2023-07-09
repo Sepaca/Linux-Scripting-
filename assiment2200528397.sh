@@ -62,14 +62,14 @@ network:
     $INTERFACE:
       addresses: [192.168.16.21/24]
       routes:
-      - to: default
-        via: 192.168.16.1
+        - to: default
+          via: 192.168.16.1
       nameservers:
         addresses: [192.168.16.1]
         search: [home.arpa, localdomain]
 EOF
   netplan apply
-# > /dev/null
+
 else 
  echo "Ip is alreary set up"
 fi

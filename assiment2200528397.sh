@@ -1,13 +1,12 @@
 #!/bin/bash
 
-# Ensure script is run as root if is not run a root, remind the user to use it, and prevent future
-# errors,
+# Ensure script is run as root if is not run a root, remind the user to use it, and prevent future errors,
 if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root, add sudo in Front of your Command" 
    exit 1
 fi
 
-# Set hostname to the appropiate one only if is not alreary set up
+# Set hostname to the appropiate one only if is not alreary set up, if it is set up I will skip
 currentHostname=$(hostname)
 if [[ "$currentHostname" != "autosrv" ]]; then
   echo "Setting hostname to :  autosrv "
@@ -15,13 +14,14 @@ if [[ "$currentHostname" != "autosrv" ]]; then
   echo "127.0.1.1 autosrv" >> /etc/hosts
 fi
 
-# Check if hostname persists after reboot
+# Check if hostname persists after reboot 
 if [[ $(hostnamectl --static) != "autosrv" ]]; then
   echo "Failed to set hostname persistently"
   exit 1
 fi
 
-# Install software and configure so it does not give me errors if is not installs# Check if openssh-server is installed and install if not
+# Install software and configure so it does not give me errors if is not installs#
+# Check if openssh-server is installed and install if not
 # Install openssh-server if not already installed
 if ! dpkg -l | grep -qw openssh-server; then
   echo "Installing openssh-server..."
@@ -67,18 +67,18 @@ if ! dpkg -l | grep -qw ufw; then
   apt-get update > /dev/null
   apt-get install -y ufw > /dev/null
 fi
-
 echo "Software installation and configuration completed."
 
-# Set static Ip
+# Set static Ip and configure the ymal file with the new configuration
   # Check if current IP matches desired IP
   current_ip=$(hostname -I | awk '{print $1}')
-  if [[ "$current_ip" == "$ip_address" ]]; then
-    print_success "IP is already set to $ip_address"
+  if [[ "$current_ip" == "192.168.16.21" ]]; then
+    print_success "IP is already set to 192.168.16.21"
     return
   fi
 
   interface=$(ip route | awk '/default/ {print $5}')
+
   # Create netplan configuration file
   cat << EOF | sudo tee /etc/netplan/01-netcfg.yaml > /dev/null
 network:
@@ -88,29 +88,23 @@ network:
     $interface:
       addresses: [192.168.16.21/24]
       routes:
-	- to: 0.0.0.0/0
-	  via: 192.168.16.1
+        - to: 0.0.0.0/0
+          via: 192.168.16.1
       nameservers:
         addresses: [192.168.16.1]
         search: [home.arpa, localdomain]
 EOF
 
-  # Apply netplan configuration
+  # Apply netplan configuration and echo if the netplan command has an exit status success full
   sudo netplan apply > /dev/null
-
-  # Check if IP is set correctly
-  current_ip=$(hostname -I | awk '{print $1}')
-  if [[ "$current_ip" == "$ip_address" ]]; then
-    print_success "Static IP set to $ip_address"
-  else
-    print_error "Failed to set static IP"
+  if [ $? -eq 0 ]; then
+      echo "Network Configuration Successful"
   fi
-}
-# Configure UFW
-ufw allow 22 > /dev/null
-ufw allow 80 > /dev/null
-ufw allow 443 > /dev/null
-ufw allow 3128 > /dev/null
+# Configure UFW rules
+ufw allow 22/tcp > /dev/null
+ufw allow 80/tcp > /dev/null
+ufw allow 443/tcp > /dev/null
+ufw allow 3128/tcp > /dev/null
 ufw --force enable > /dev/nul 
 echo "UFW rules have been set up"
 
@@ -118,7 +112,7 @@ echo "UFW rules have been set up"
 # List of users
 users=("dennis" "aubrey" "captain" "snibbles" "brownie" "scooter" "sandy" "perrier" "cindy" "tiger" "yoda")
 
-# Public key for 'dennis'
+# Public key for 'dennis' variable
 sudo_pub_key="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG4rT3vTt99Ox5kndS4HmgTrKBT8SKzhK4rhGkEVGlCI student@generic-vm"
 
 # Create users, set random passwords, and configure SSH keys
@@ -131,8 +125,8 @@ for user in "${users[@]}"; do
         sudo useradd -m -s /bin/bash $user
 
         # Generate SSH keys
-        sudo su - $user -c "ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa <<<y >/dev/null 2>&1"
-        sudo su - $user -c "ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519 <<< >/dev/null 2>&1"
+        sudo su - $user -c "ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa >/dev/null 2>&1"
+        sudo su - "$user" ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 >/dev/null 2>&1
 
         # Add public keys to authorized_keys file
         sudo su - $user -c "cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys"
@@ -146,7 +140,7 @@ echo "$sudo_pub_key" | sudo tee -a /home/dennis/.ssh/authorized_keys >/dev/null 
 echo "Sudo access granted to user 'dennis'."
 
 
-# Verifying changes
+# Verifying changes made 
 echo "Verifying changes..."
 hostnamectl status | grep -q "autosrv" && echo "Hostname set correctly" || echo "Hostname not set correctly"
 #netplan ip leases  | grep -q "192.168.16.21" && echo "Static IP set correctly" || echo "Static IP not set correctly"

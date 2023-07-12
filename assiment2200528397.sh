@@ -72,11 +72,9 @@ echo "Software installation and configuration completed."
 # Set static Ip and configure the ymal file with the new configuration
   # Check if current IP matches desired IP
   current_ip=$(hostname -I | awk '{print $1}')
-  if [[ "$current_ip" == "192.168.16.21" ]]; then
-    print_success "IP is already set to 192.168.16.21"
-    return
-  fi
-
+if [[ "$current_ip" == "192.168.16.21" ]]; then
+    echo "IP is already set to 192.168.16.21"  
+else
   interface=$(ip route | awk '/default/ {print $5}')
 
   # Create netplan configuration file
@@ -97,7 +95,8 @@ EOF
 
   # Apply netplan configuration and echo if the netplan command has an exit status success full
   sudo netplan apply > /dev/null
-  if [ $? -eq 0 ]; then
+  fi
+if [ $? -eq 0 ]; then
       echo "Network Configuration Successful"
   fi
 # Configure UFW rules
@@ -126,11 +125,11 @@ for user in "${users[@]}"; do
 
         # Generate SSH keys
         sudo su - $user -c "ssh-keygen -t rsa -N '' -f ~/.ssh/id_rsa >/dev/null 2>&1"
-        sudo su - "$user" ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 >/dev/null 2>&1
+        sudo su - "$user" -c "ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519 >/dev/null 2>&1"
 
         # Add public keys to authorized_keys file
         sudo su - $user -c "cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys"
-        sudo su - $user -c "cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys"
+        cat "/home/$user/.ssh/id_ed25519.pub" >> "/home/$user/.ssh/authorized_keys"
     fi
 done
 

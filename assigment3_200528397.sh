@@ -1,6 +1,5 @@
 # Sebastian Patino
 # Assignment 3
-# Shebang line to define the script interpreter for execution, in this case, Bash.
 
 # The names and IP addresses of the target machines
 # Declaring variables to hold target hostnames and IPs.
@@ -10,15 +9,16 @@ TARGET2_NAME=target2-mgmt
 TARGET2_IP=172.16.1.11
 
 # Change system name and IP for target1-mgmt
-# Beginning of a block of commands for configuring the first target.
 ssh -oStrictHostKeyChecking=no remoteadmin@$TARGET1_IP << 'ENDSSH'
-# SSH connection to target1 with disabled host key checking.
+# SSH connection to target1 with disabled host key checking,
+# so I does not ask for a password 
 
 sudo hostname loghost
 # Setting the hostname to "loghost" on target1.
 
 interface=$(ip route | awk '/default/ {print $5}')
-# Using "ip route" to determine the default interface, assigning it to the variable "interface".
+# Using "ip route" to determine the default interface,
+# assigning it to the variable "interface".
 
 sudo ip addr add 192.168.1.3/24 dev $interface
 # Adding a new IP address 192.168.1.3/24 to the detected interface.
@@ -27,13 +27,16 @@ echo "192.168.1.4 webhost" | sudo tee -a /etc/hosts
 # Appending the webhost's IP address to target1's /etc/hosts file.
 
 sudo apt-get update && sudo apt-get install -y ufw
-# Updating the package list and installing the Uncomplicated Firewall (ufw) package.
+# Updating the package list and installing the
+# Uncomplicated Firewall (ufw) package.
 
 sudo ufw allow from 172.16.1.0/24 to any port 514 proto udp
-# Configuring the firewall to allow UDP traffic on port 514 from the specified subnet.
+# Configuring the firewall to allow UDP traffic on port 514 
+#from the specified subnet.
 
 sudo sed -i 's/#module(load="imudp")/module(load="imudp")/g' /etc/rsyslog.conf
 # Enabling the UDP input module in the rsyslog configuration.
+#
 
 sudo sed -i 's/#input(type="imudp" port="514")/input(type="imudp" port="514")/g' /etc/rsyslog.conf
 # Enabling the UDP input on port 514 in the rsyslog configuration.
@@ -44,7 +47,7 @@ ENDSSH
 # End of the SSH session for target1.
 
 # Change system name and IP for target2-mgmt
-# Beginning of a block of commands for configuring the second target.
+# Beginning commands for configuring the second target.
 ssh -oStrictHostKeyChecking=no remoteadmin@$TARGET2_IP << 'ENDSSH'
 # SSH connection to target2 with disabled host key checking.
 
@@ -52,7 +55,8 @@ sudo hostname webhost
 # Setting the hostname to "webhost" on target2.
 
 interface=$(ip route | awk '/default/ {print $5}')
-# Using "ip route" to determine the default interface, assigning it to the variable "interface".
+# Using "ip route" to determine the default interface,
+# assigning it to the variable "interface".
 
 sudo ip addr add 192.168.1.4/24 dev $interface
 # Adding a new IP address 192.168.1.4/24 to the detected interface.
@@ -61,7 +65,8 @@ echo "192.168.1.3 loghost" | sudo tee -a /etc/hosts
 # Appending the loghost's IP address to target2's /etc/hosts file.
 
 sudo apt-get update && sudo apt-get install -y ufw apache2
-# Updating the package list and installing the Uncomplicated Firewall (ufw) and Apache2 web server packages.
+# Updating the package list and installing the Uncomplicated Firewall (ufw)
+# and Apache2 web server packages.
 
 sudo ufw allow 80/tcp
 # Configuring the firewall to allow TCP traffic on port 80 (HTTP).
